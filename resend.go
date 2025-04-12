@@ -29,6 +29,9 @@ const (
 	configKeySenderDomain = "sender_domain"
 )
 
+// none is a convenience variable for starlark.None
+var none = starlark.None
+
 // Module wraps the ConfigurableModule with specific functionality for sending emails.
 type Module struct {
 	cfgMod *base.ConfigurableModule
@@ -53,7 +56,7 @@ func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
 }
 
 // NewModuleWithGetter creates a new instance of Module with the given configuration getters.
-func NewModuleWithGetter(resendAPIKey, senderDomain base.ConfigGetter[string]) *Module {
+func NewModuleWithGetter(resendAPIKey, senderDomain func() string) *Module {
 	cm, _ := base.NewConfigurableModuleWithOptions(
 		base.WithConfigGetter(configKeyResendAPIKey, resendAPIKey),
 		base.WithConfigGetter(configKeySenderDomain, senderDomain),
@@ -75,9 +78,12 @@ func (m *Module) genSendFunc() starlark.Callable {
 		// Load config: resend_api_key is required, sender_domain is optional
 		resendAPIKey, err := base.GetConfigValue[string](m.cfgMod, configKeyResendAPIKey)
 		if err != nil {
-			return starlark.None, fmt.Errorf("%s is not set", configKeyResendAPIKey)
+			return none, fmt.Errorf("%s is not set", configKeyResendAPIKey)
 		}
-		senderDomain, _ := base.GetConfigValue[string](m.cfgMod, configKeySenderDomain)
+		senderDomain, err := base.GetConfigValue[string](m.cfgMod, configKeySenderDomain)
+		if err != nil {
+			return none, fmt.Errorf("%s is not set", configKeySenderDomain)
+		}
 
 		// parse args
 		newOneOrListStr := func() *types.OneOrMany[starlark.String] { return types.NewOneOrManyNoDefault[starlark.String]() }
@@ -103,18 +109,18 @@ func (m *Module) genSendFunc() starlark.Callable {
 			"from?", &fromAddress, "from_id?", &fromNameID,
 			"reply_to?", &replyAddress, "reply_id?", &replyNameID,
 			"attachment_file?", attachmentFiles, "attachment?", attachmentContents); err != nil {
-			return starlark.None, err
+			return none, err
 		}
 
 		// validate args
 		if body := []string{bodyHTML.GoString(), bodyText.GoString(), bodyMarkdown.GoString()}; lo.EveryBy(body, ystring.IsBlank) {
-			return starlark.None, fmt.Errorf("one of body_html, body_text, or body_markdown must be non-blank")
+			return none, fmt.Errorf("one of body_html, body_text, or body_markdown must be non-blank")
 		}
 		if toAddresses.Len() == 0 {
-			return starlark.None, fmt.Errorf("to must be set and non-empty")
+			return none, fmt.Errorf("to must be set and non-empty")
 		}
 		if from := []string{fromAddress.GoString(), fromNameID.GoString()}; lo.EveryBy(from, ystring.IsBlank) {
-			return starlark.None, fmt.Errorf("one of from or from_id must be non-blank")
+			return none, fmt.Errorf("one of from or from_id must be non-blank")
 		}
 
 		// convert from to send address
@@ -125,10 +131,10 @@ func (m *Module) genSendFunc() starlark.Callable {
 			if ystring.IsNotBlank(senderDomain) {
 				sendAddr = fi + "@" + senderDomain
 			} else {
-				return starlark.None, fmt.Errorf("%s should be set when from_id is used", configKeySenderDomain)
+				return none, fmt.Errorf("%s should be set when from_id is used", configKeySenderDomain)
 			}
 		} else {
-			return starlark.None, fmt.Errorf("no valid from or from_id found")
+			return none, fmt.Errorf("no valid from or from_id found")
 		}
 
 		// convert from to reply address
@@ -139,7 +145,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 			if ystring.IsNotBlank(senderDomain) {
 				replyAddr = ri + "@" + senderDomain
 			} else {
-				return starlark.None, fmt.Errorf("%s should be set when reply_id is used", configKeySenderDomain)
+				return none, fmt.Errorf("%s should be set when reply_id is used", configKeySenderDomain)
 			}
 		}
 
@@ -191,7 +197,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 				fp := r.GoString()
 				c, err := ioutil.ReadFile(fp)
 				if err != nil {
-					return starlark.None, err
+					return none, err
 				}
 				n := filepath.Base(fp)
 				req.Attachments = append(req.Attachments, &resend.Attachment{
@@ -205,11 +211,11 @@ func (m *Module) genSendFunc() starlark.Callable {
 			for _, r := range dcts {
 				fn, ok, err := r.Get(starlark.String("name"))
 				if !ok || err != nil {
-					return starlark.None, fmt.Errorf("attachment must have a name")
+					return none, fmt.Errorf("attachment must have a name")
 				}
 				ct, ok, err := r.Get(starlark.String("content"))
 				if !ok || err != nil {
-					return starlark.None, fmt.Errorf("attachment must have content")
+					return none, fmt.Errorf("attachment must have content")
 				}
 				req.Attachments = append(req.Attachments, &resend.Attachment{
 					Filename: dataconv.StarString(fn),
@@ -223,7 +229,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 		client := resend.NewClient(resendAPIKey)
 		sent, err := client.Emails.SendWithContext(ctx, req)
 		if err != nil {
-			return starlark.None, err
+			return none, err
 		}
 		return starlark.String(sent.Id), nil
 	})
