@@ -11,9 +11,9 @@ import (
 	"github.com/1set/starlet"
 	"github.com/1set/starlet/dataconv"
 	"github.com/1set/starlet/dataconv/types"
-	"github.com/PureMature/starport/base"
 	"github.com/resend/resend-go/v2"
 	"github.com/samber/lo"
+	"github.com/starpkg/base"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	renderer "github.com/yuin/goldmark/renderer/html"
@@ -25,29 +25,29 @@ const ModuleName = "email"
 
 // Module wraps the ConfigurableModule with specific functionality for sending emails.
 type Module struct {
-	cfgMod *base.ConfigurableModule[string]
+	cfgMod *base.ConfigurableModule
 }
 
 // NewModule creates a new instance of Module.
 func NewModule() *Module {
-	cm := base.NewConfigurableModule[string]()
+	cm := base.NewConfigurableModule()
 	return &Module{cfgMod: cm}
 }
 
 // NewModuleWithConfig creates a new instance of Module with the given configuration values.
 func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
-	cm := base.NewConfigurableModule[string]()
-	cm.SetConfigValue("resend_api_key", resendAPIKey)
-	cm.SetConfigValue("sender_domain", senderDomain)
-	return &Module{cfgMod: cm}
+	m := NewModule()
+	_ = base.SetConfigValue(m.cfgMod, "resend_api_key", resendAPIKey)
+	_ = base.SetConfigValue(m.cfgMod, "sender_domain", senderDomain)
+	return m
 }
 
 // NewModuleWithGetter creates a new instance of Module with the given configuration getters.
 func NewModuleWithGetter(resendAPIKey, senderDomain base.ConfigGetter[string]) *Module {
-	cm := base.NewConfigurableModule[string]()
-	cm.SetConfig("resend_api_key", resendAPIKey)
-	cm.SetConfig("sender_domain", senderDomain)
-	return &Module{cfgMod: cm}
+	m := NewModule()
+	_ = base.SetConfigGetter(m.cfgMod, "resend_api_key", resendAPIKey)
+	_ = base.SetConfigGetter(m.cfgMod, "sender_domain", senderDomain)
+	return m
 }
 
 // LoadModule returns the Starlark module loader with the email-specific functions.
@@ -62,11 +62,11 @@ func (m *Module) LoadModule() starlet.ModuleLoader {
 func (m *Module) genSendFunc() starlark.Callable {
 	return starlark.NewBuiltin(ModuleName+".send", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		// Load config: resend_api_key is required, sender_domain is optional
-		resendAPIKey, err := m.cfgMod.GetConfig("resend_api_key")
+		resendAPIKey, err := base.GetConfigValue[string](m.cfgMod, "resend_api_key")
 		if err != nil {
 			return starlark.None, fmt.Errorf("resend_api_key is not set")
 		}
-		senderDomain, _ := m.cfgMod.GetConfig("sender_domain")
+		senderDomain, _ := base.GetConfigValue[string](m.cfgMod, "sender_domain")
 
 		// parse args
 		newOneOrListStr := func() *types.OneOrMany[starlark.String] { return types.NewOneOrManyNoDefault[starlark.String]() }
