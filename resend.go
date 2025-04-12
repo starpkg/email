@@ -28,26 +28,31 @@ type Module struct {
 	cfgMod *base.ConfigurableModule
 }
 
-// NewModule creates a new instance of Module.
+// NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
-	cm := base.NewConfigurableModule()
+	cm, _ := base.NewConfigurableModuleWithOptions(
+		base.WithConfigValue("resend_api_key", ""),
+		base.WithConfigValue("sender_domain", ""),
+	)
 	return &Module{cfgMod: cm}
 }
 
 // NewModuleWithConfig creates a new instance of Module with the given configuration values.
 func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
-	m := NewModule()
-	_ = base.SetConfigValue(m.cfgMod, "resend_api_key", resendAPIKey)
-	_ = base.SetConfigValue(m.cfgMod, "sender_domain", senderDomain)
-	return m
+	cm, _ := base.NewConfigurableModuleWithOptions(
+		base.WithConfigValue("resend_api_key", resendAPIKey),
+		base.WithConfigValue("sender_domain", senderDomain),
+	)
+	return &Module{cfgMod: cm}
 }
 
 // NewModuleWithGetter creates a new instance of Module with the given configuration getters.
 func NewModuleWithGetter(resendAPIKey, senderDomain base.ConfigGetter[string]) *Module {
-	m := NewModule()
-	_ = base.SetConfigGetter(m.cfgMod, "resend_api_key", resendAPIKey)
-	_ = base.SetConfigGetter(m.cfgMod, "sender_domain", senderDomain)
-	return m
+	cm, _ := base.NewConfigurableModuleWithOptions(
+		base.WithConfigGetter("resend_api_key", resendAPIKey),
+		base.WithConfigGetter("sender_domain", senderDomain),
+	)
+	return &Module{cfgMod: cm}
 }
 
 // LoadModule returns the Starlark module loader with the email-specific functions.
