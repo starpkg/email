@@ -40,8 +40,8 @@ type Module struct {
 // NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
 	cm, _ := base.NewConfigurableModuleWithOptions(
-		base.WithConfigValue(configKeyResendAPIKey, ""),
-		base.WithConfigValue(configKeySenderDomain, ""),
+		base.WithConfigDefault(configKeyResendAPIKey, ""),
+		base.WithConfigDefault(configKeySenderDomain, ""),
 	)
 	return &Module{cfgMod: cm}
 }
