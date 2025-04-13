@@ -30,8 +30,10 @@ const (
 	configKeySenderDomain = "sender_domain"
 )
 
-// none is a convenience variable for starlark.None
-var none = starlark.None
+var (
+	none  = starlark.None // none is a convenience variable for starlark.None
+	empty string          // empty is a convenience variable for an empty string
+)
 
 // Module wraps the ConfigurableModule with specific functionality for sending emails.
 type Module struct {
@@ -42,31 +44,23 @@ type Module struct {
 // NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
 	return newModuleWithOptions(
-		genConfigOption(configKeyResendAPIKey, "Resend API key", true),
-		genConfigOption(configKeySenderDomain, "Sender domain", false),
+		genConfigOption(configKeyResendAPIKey, "Resend API key", empty, true),
+		genConfigOption(configKeySenderDomain, "Sender domain", empty, false),
 	)
 }
 
 // NewModuleWithConfig creates a new instance of Module with the given configuration values.
 func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
 	return newModuleWithOptions(
-		genConfigOption(configKeyResendAPIKey, "Resend API key with preset value", true).WithValue(resendAPIKey),
-		genConfigOption(configKeySenderDomain, "Sender domain with preset value", false).WithValue(senderDomain),
-	)
-}
-
-// NewModuleWithGetter creates a new instance of Module with the given configuration getter functions.
-func NewModuleWithGetter(resendAPIKey, senderDomain func() string) *Module {
-	return newModuleWithOptions(
-		genConfigOption(configKeyResendAPIKey, "Resend API key with retrieval function", true).WithGetter(resendAPIKey),
-		genConfigOption(configKeySenderDomain, "Sender domain with retrieval function", false).WithGetter(senderDomain),
+		genConfigOption(configKeyResendAPIKey, "Resend API key with preset value", resendAPIKey, true),
+		genConfigOption(configKeySenderDomain, "Sender domain with preset value", senderDomain, false),
 	)
 }
 
 // genConfigOption creates a configuration option with common settings.
-// It sets up the name, description, and environment variable, and marks it as secret if needed.
-func genConfigOption(name, description string, isSecret bool) *base.ConfigOption[string] {
-	return base.NewConfigOption("").
+// It sets up the name, description, default value, and environment variable, and marks it as secret if needed.
+func genConfigOption(name, description, defaultValue string, isSecret bool) *base.ConfigOption[string] {
+	return base.NewConfigOption(defaultValue).
 		WithName(name).
 		WithDescription(description).
 		WithEnvVar(strings.ToUpper(ModuleName + "_" + name)).
