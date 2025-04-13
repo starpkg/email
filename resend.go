@@ -44,27 +44,26 @@ type Module struct {
 // NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
 	return newModuleWithOptions(
-		genConfigOption(configKeyResendAPIKey, "Resend API key", empty, true),
-		genConfigOption(configKeySenderDomain, "Sender domain", empty, false),
+		genConfigOption(configKeyResendAPIKey, "Resend API key", empty).SetSecret(true),
+		genConfigOption(configKeySenderDomain, "Sender domain", empty),
 	)
 }
 
 // NewModuleWithConfig creates a new instance of Module with the given configuration values.
 func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
 	return newModuleWithOptions(
-		genConfigOption(configKeyResendAPIKey, "Resend API key with preset value", resendAPIKey, true),
-		genConfigOption(configKeySenderDomain, "Sender domain with preset value", senderDomain, false),
+		genConfigOption(configKeyResendAPIKey, "Resend API key with preset value", resendAPIKey).SetSecret(true),
+		genConfigOption(configKeySenderDomain, "Sender domain with preset value", senderDomain),
 	)
 }
 
 // genConfigOption creates a configuration option with common settings.
 // It sets up the name, description, default value, and environment variable, and marks it as secret if needed.
-func genConfigOption(name, description, defaultValue string, isSecret bool) *base.ConfigOption[string] {
+func genConfigOption(name, description, defaultValue string) *base.ConfigOption[string] {
 	return base.NewConfigOption(defaultValue).
 		WithName(name).
 		WithDescription(description).
-		WithEnvVar(strings.ToUpper(ModuleName + "_" + name)).
-		SetSecret(isSecret)
+		WithEnvVar(strings.ToUpper(ModuleName + "_" + name))
 }
 
 // newModuleWithOptions creates a Module with the given configuration options.
