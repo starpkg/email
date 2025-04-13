@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/1set/gut/ystring"
 	"github.com/1set/starlet"
@@ -40,33 +41,43 @@ type Module struct {
 
 // NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
-	cm, _ := base.NewConfigurableModuleWithOptions(
-		base.WithConfigDefault(configKeyResendAPIKey, ""),
-		base.WithConfigDefault(configKeySenderDomain, ""),
+	return newModuleWithOptions(
+		genConfigOption(configKeyResendAPIKey, "Resend API key", true),
+		genConfigOption(configKeySenderDomain, "Sender domain", false),
 	)
-	return &Module{
-		cfgMod: cm,
-		ext:    cm.Extend(),
-	}
 }
 
 // NewModuleWithConfig creates a new instance of Module with the given configuration values.
 func NewModuleWithConfig(resendAPIKey, senderDomain string) *Module {
-	cm, _ := base.NewConfigurableModuleWithOptions(
-		base.WithConfigValue(configKeyResendAPIKey, resendAPIKey),
-		base.WithConfigValue(configKeySenderDomain, senderDomain),
+	return newModuleWithOptions(
+		genConfigOption(configKeyResendAPIKey, "Resend API key with preset value", true).WithValue(resendAPIKey),
+		genConfigOption(configKeySenderDomain, "Sender domain with preset value", false).WithValue(senderDomain),
 	)
-	return &Module{
-		cfgMod: cm,
-		ext:    cm.Extend(),
-	}
 }
 
-// NewModuleWithGetter creates a new instance of Module with the given configuration getters.
+// NewModuleWithGetter creates a new instance of Module with the given configuration getter functions.
 func NewModuleWithGetter(resendAPIKey, senderDomain func() string) *Module {
-	cm, _ := base.NewConfigurableModuleWithOptions(
-		base.WithConfigGetter(configKeyResendAPIKey, resendAPIKey),
-		base.WithConfigGetter(configKeySenderDomain, senderDomain),
+	return newModuleWithOptions(
+		genConfigOption(configKeyResendAPIKey, "Resend API key with retrieval function", true).WithGetter(resendAPIKey),
+		genConfigOption(configKeySenderDomain, "Sender domain with retrieval function", false).WithGetter(senderDomain),
+	)
+}
+
+// genConfigOption creates a configuration option with common settings.
+// It sets up the name, description, and environment variable, and marks it as secret if needed.
+func genConfigOption(name, description string, isSecret bool) *base.ConfigOption[string] {
+	return base.NewConfigOption("").
+		WithName(name).
+		WithDescription(description).
+		WithEnvVar(strings.ToUpper(ModuleName + "_" + name)).
+		SetSecret(isSecret)
+}
+
+// newModuleWithOptions creates a Module with the given configuration options.
+func newModuleWithOptions(apiKeyOpt, senderDomainOpt *base.ConfigOption[string]) *Module {
+	cm, _ := base.NewConfigurableModuleWithConfigOptions(
+		apiKeyOpt,
+		senderDomainOpt,
 	)
 	return &Module{
 		cfgMod: cm,
