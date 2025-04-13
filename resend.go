@@ -37,6 +37,15 @@ type Module struct {
 	cfgMod *base.ConfigurableModule
 }
 
+// getStringConfig retrieves a string configuration value with an optional default value.
+func (m *Module) getStringConfig(key string, defaultVal ...string) string {
+	val, err := base.GetConfigValue[string](m.cfgMod, key)
+	if err != nil && len(defaultVal) > 0 {
+		return defaultVal[0]
+	}
+	return val
+}
+
 // NewModule creates a new instance of Module with default empty configurations.
 func NewModule() *Module {
 	cm, _ := base.NewConfigurableModuleWithOptions(
@@ -76,14 +85,12 @@ func (m *Module) LoadModule() starlet.ModuleLoader {
 func (m *Module) genSendFunc() starlark.Callable {
 	return starlark.NewBuiltin(ModuleName+".send", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 		// Load config: resend_api_key is required, sender_domain is optional
-		resendAPIKey, err := base.GetConfigValue[string](m.cfgMod, configKeyResendAPIKey)
-		if err != nil {
+		resendAPIKey := m.getStringConfig(configKeyResendAPIKey)
+		if resendAPIKey == "" {
 			return none, fmt.Errorf("%s is not set", configKeyResendAPIKey)
 		}
-		senderDomain, err := base.GetConfigValue[string](m.cfgMod, configKeySenderDomain)
-		if err != nil {
-			return none, fmt.Errorf("%s is not set", configKeySenderDomain)
-		}
+		// Get sender domain, but don't require it yet - it's only needed for from_id/reply_id
+		senderDomain := m.getStringConfig(configKeySenderDomain, "")
 
 		// parse args
 		newOneOrListStr := func() *types.OneOrMany[starlark.String] { return types.NewOneOrManyNoDefault[starlark.String]() }
