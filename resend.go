@@ -170,10 +170,15 @@ func (m *Module) genSendFunc() starlark.Callable {
 		if !bodyHTML.IsNullOrEmpty() {
 			// directly use HTML content
 			req.Html = bodyHTML.GoString()
-		} else if !bodyText.IsNullOrEmpty() {
+		}
+
+		if !bodyText.IsNullOrEmpty() {
 			// directly use text content
 			req.Text = bodyText.GoString()
-		} else if !bodyMarkdown.IsNullOrEmpty() {
+		}
+
+		if !bodyMarkdown.IsNullOrEmpty() {
+			// markdown overrides both HTML and text when provided
 			// convert markdown to HTML
 			markdown := goldmark.New(
 				goldmark.WithRendererOptions(
@@ -188,6 +193,8 @@ func (m *Module) genSendFunc() starlark.Callable {
 			html := bytes.NewBufferString("")
 			_ = markdown.Convert([]byte(bodyMarkdown.GoString()), html)
 			req.Html = html.String()
+			// use original markdown as text
+			req.Text = bodyMarkdown.GoString()
 		}
 
 		// for attachments
