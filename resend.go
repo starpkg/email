@@ -80,6 +80,7 @@ func newModuleWithOptions(apiKeyOpt, senderDomainOpt *base.ConfigOption[string])
 
 // LoadModule returns the Starlark module loader with the email-specific functions.
 func (m *Module) LoadModule() starlet.ModuleLoader {
+	// Additional module functions
 	additionalFuncs := starlark.StringDict{
 		"send": m.genSendFunc(),
 	}
