@@ -9,7 +9,7 @@ require (
 	github.com/resend/resend-go/v2 v2.6.0
 	github.com/samber/lo v1.39.0
 	github.com/spyzhov/ajson v0.9.6 // indirect
-	github.com/yuin/goldmark v1.7.1
+	github.com/yuin/goldmark v1.7.10
 	go.starlark.net v0.0.0-20240123142251-f86470692795
 )
 
