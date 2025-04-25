@@ -108,10 +108,10 @@ func (m *Module) genSendFunc() starlark.Callable {
 			toAddresses        = newOneOrListStr() // must be set
 			ccAddresses        = newOneOrListStr()
 			bccAddresses       = newOneOrListStr()
-			fromAddress        types.StringOrBytes // one of the two must be set
-			fromNameID         types.StringOrBytes
-			replyAddress       types.StringOrBytes // two of them are optional
-			replyNameID        types.StringOrBytes
+			fromAddress        types.NullableStringOrBytes // one of the two must be set
+			fromNameID         types.NullableStringOrBytes
+			replyAddress       types.NullableStringOrBytes // both are optional
+			replyNameID        types.NullableStringOrBytes
 			attachmentFiles    = newOneOrListStr()
 			attachmentContents = types.NewOneOrManyNoDefault[*starlark.Dict]()
 		)
@@ -132,17 +132,17 @@ func (m *Module) genSendFunc() starlark.Callable {
 		if toAddresses.Len() == 0 {
 			return none, fmt.Errorf("to must be set and non-empty")
 		}
-		if from := []string{fromAddress.GoString(), fromNameID.GoString()}; lo.EveryBy(from, ystring.IsBlank) {
+		if fromAddress.IsNullOrEmpty() && fromNameID.IsNullOrEmpty() {
 			return none, fmt.Errorf("one of from or from_id must be non-blank")
 		}
 
 		// convert from to send address
 		var sendAddr string
-		if fa := fromAddress.GoString(); ystring.IsNotBlank(fa) {
-			sendAddr = fa
-		} else if fi := fromNameID.GoString(); ystring.IsNotBlank(fi) {
+		if !fromAddress.IsNullOrEmpty() {
+			sendAddr = fromAddress.GoString()
+		} else if !fromNameID.IsNullOrEmpty() {
 			if ystring.IsNotBlank(senderDomain) {
-				sendAddr = fi + "@" + senderDomain
+				sendAddr = fromNameID.GoString() + "@" + senderDomain
 			} else {
 				return none, fmt.Errorf("%s should be set when from_id is used", configKeySenderDomain)
 			}
@@ -152,11 +152,11 @@ func (m *Module) genSendFunc() starlark.Callable {
 
 		// convert from to reply address
 		var replyAddr string
-		if ra := replyAddress.GoString(); ystring.IsNotBlank(ra) {
-			replyAddr = ra
-		} else if ri := replyNameID.GoString(); ystring.IsNotBlank(ri) {
+		if !replyAddress.IsNullOrEmpty() {
+			replyAddr = replyAddress.GoString()
+		} else if !replyNameID.IsNullOrEmpty() {
 			if ystring.IsNotBlank(senderDomain) {
-				replyAddr = ri + "@" + senderDomain
+				replyAddr = replyNameID.GoString() + "@" + senderDomain
 			} else {
 				return none, fmt.Errorf("%s should be set when reply_id is used", configKeySenderDomain)
 			}
