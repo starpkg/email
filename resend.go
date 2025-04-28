@@ -1,6 +1,21 @@
 // Package email provides a Starlark module that sends email using Resend API.
-// The module provides a send() function that returns a SendResponse struct containing
-// details about the sent email including ID, sender, recipients, subject, and body content.
+// The module provides a send() function that returns a struct containing
+// details about the sent email including:
+// - success: Whether the email was sent successfully
+// - error: Error message if the email failed to send
+// - id: The unique identifier of the sent email
+// - from: The sender's email address
+// - to: List of recipient email addresses
+// - cc: List of CC recipient email addresses
+// - bcc: List of BCC recipient email addresses
+// - reply_to: The reply-to email address
+// - subject: The email subject
+// - body_html: The HTML content of the email
+// - body_text: The plain text content of the email
+// - attachments: List of attachment details (name, content)
+// - tags: List of email tags
+// - headers: Map of custom email headers
+// - scheduled_at: Scheduled send time if specified
 package email
 
 import (
@@ -90,15 +105,9 @@ func (m *Module) LoadModule() starlet.ModuleLoader {
 	return m.cfgMod.LoadModule(ModuleName, additionalFuncs)
 }
 
-// SendResponse represents the result of sending an email
-type SendResponse struct {
-	ID       string
-	From     string
-	To       []string
-	ReplyTo  string
-	Subject  string
-	BodyHTML string
-	BodyText string
+// stringListToStarlark converts a slice of strings to a Starlark list of strings
+func stringListToStarlark(strs []string) starlark.Value {
+	return starlark.NewList(lo.Map(strs, func(s string, _ int) starlark.Value { return starlark.String(s) }))
 }
 
 // genSendFunc generates the Starlark callable function to send an email.
@@ -262,30 +271,47 @@ func (m *Module) genSendFunc() starlark.Callable {
 		ctx := dataconv.GetThreadContext(thread)
 		client := resend.NewClient(resendAPIKey)
 		sent, err := client.Emails.SendWithContext(ctx, req)
-		if err != nil {
-			return none, err
-		}
 
-		// Create and return SendResponse struct
-		response := &SendResponse{
-			ID:       sent.Id,
-			From:     req.From,
-			To:       req.To,
-			ReplyTo:  req.ReplyTo,
-			Subject:  req.Subject,
-			BodyHTML: req.Html,
-			BodyText: req.Text,
-		}
-
-		// Convert to Starlark struct
+		// Create response fields with success/error status
 		fields := starlark.StringDict{
-			"id":        starlark.String(response.ID),
-			"from":      starlark.String(response.From),
-			"to":        starlark.NewList(lo.Map(response.To, func(s string, _ int) starlark.Value { return starlark.String(s) })),
-			"reply_to":  starlark.String(response.ReplyTo),
-			"subject":   starlark.String(response.Subject),
-			"body_html": starlark.String(response.BodyHTML),
-			"body_text": starlark.String(response.BodyText),
+			"success": starlark.Bool(err == nil),
+		}
+		if err != nil {
+			fields["error"] = starlark.String(err.Error())
+			fields["id"] = none
+			fields["from"] = none
+			fields["to"] = none
+			fields["cc"] = none
+			fields["bcc"] = none
+			fields["reply_to"] = none
+			fields["subject"] = none
+			fields["body_html"] = none
+			fields["body_text"] = none
+		} else {
+			fields["error"] = none
+			fields["id"] = starlark.String(sent.Id)
+			fields["from"] = starlark.String(req.From)
+			fields["to"] = stringListToStarlark(req.To)
+			fields["cc"] = stringListToStarlark(req.Cc)
+			fields["bcc"] = stringListToStarlark(req.Bcc)
+			fields["reply_to"] = starlark.String(req.ReplyTo)
+			fields["subject"] = starlark.String(req.Subject)
+			fields["body_html"] = starlark.String(req.Html)
+			fields["body_text"] = starlark.String(req.Text)
+
+			// Add attachments if present
+			if len(req.Attachments) > 0 {
+				attachments := make([]starlark.Value, len(req.Attachments))
+				for i, att := range req.Attachments {
+					attDict := starlark.NewDict(2)
+					attDict.SetKey(starlark.String("name"), starlark.String(att.Filename))
+					attDict.SetKey(starlark.String("content"), starlark.Bytes(att.Content))
+					attachments[i] = attDict
+				}
+				fields["attachments"] = starlark.NewList(attachments)
+			} else {
+				fields["attachments"] = none
+			}
 		}
 
 		return starlarkstruct.FromStringDict(starlarkstruct.Default, fields), nil
