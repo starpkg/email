@@ -1,4 +1,6 @@
 // Package email provides a Starlark module that sends email using Resend API.
+// The module provides a send() function that returns a SendResponse struct containing
+// details about the sent email including ID, sender, recipients, subject, and body content.
 package email
 
 import (
@@ -19,6 +21,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 	renderer "github.com/yuin/goldmark/renderer/html"
 	"go.starlark.net/starlark"
+	"go.starlark.net/starlarkstruct"
 )
 
 // ModuleName defines the expected name for this module when used in Starlark's load() function, e.g., load('email', 'send')
@@ -85,6 +88,17 @@ func (m *Module) LoadModule() starlet.ModuleLoader {
 		"send": m.genSendFunc(),
 	}
 	return m.cfgMod.LoadModule(ModuleName, additionalFuncs)
+}
+
+// SendResponse represents the result of sending an email
+type SendResponse struct {
+	ID       string
+	From     string
+	To       []string
+	ReplyTo  string
+	Subject  string
+	BodyHTML string
+	BodyText string
 }
 
 // genSendFunc generates the Starlark callable function to send an email.
@@ -251,6 +265,29 @@ func (m *Module) genSendFunc() starlark.Callable {
 		if err != nil {
 			return none, err
 		}
-		return starlark.String(sent.Id), nil
+
+		// Create and return SendResponse struct
+		response := &SendResponse{
+			ID:       sent.Id,
+			From:     req.From,
+			To:       req.To,
+			ReplyTo:  req.ReplyTo,
+			Subject:  req.Subject,
+			BodyHTML: req.Html,
+			BodyText: req.Text,
+		}
+
+		// Convert to Starlark struct
+		fields := starlark.StringDict{
+			"id":        starlark.String(response.ID),
+			"from":      starlark.String(response.From),
+			"to":        starlark.NewList(lo.Map(response.To, func(s string, _ int) starlark.Value { return starlark.String(s) })),
+			"reply_to":  starlark.String(response.ReplyTo),
+			"subject":   starlark.String(response.Subject),
+			"body_html": starlark.String(response.BodyHTML),
+			"body_text": starlark.String(response.BodyText),
+		}
+
+		return starlarkstruct.FromStringDict(starlarkstruct.Default, fields), nil
 	})
 }
