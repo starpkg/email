@@ -297,22 +297,21 @@ func (m *Module) genSendFunc() starlark.Callable {
 			fields["subject"] = starlark.String(req.Subject)
 			fields["body_html"] = starlark.String(req.Html)
 			fields["body_text"] = starlark.String(req.Text)
-
-			// Add attachments if present
-			if len(req.Attachments) > 0 {
-				attachments := make([]starlark.Value, len(req.Attachments))
-				for i, att := range req.Attachments {
-					attDict := starlark.NewDict(2)
-					attDict.SetKey(starlark.String("name"), starlark.String(att.Filename))
-					attDict.SetKey(starlark.String("content"), starlark.Bytes(att.Content))
-					attachments[i] = attDict
-				}
-				fields["attachments"] = starlark.NewList(attachments)
-			} else {
-				fields["attachments"] = none
-			}
 		}
 
+		// Add attachments if present
+		if len(req.Attachments) > 0 {
+			attachments := make([]starlark.Value, len(req.Attachments))
+			for i, att := range req.Attachments {
+				attDict := starlark.NewDict(2)
+				attDict.SetKey(starlark.String("name"), starlark.String(att.Filename))
+				attDict.SetKey(starlark.String("content"), starlark.Bytes(att.Content))
+				attachments[i] = attDict
+			}
+			fields["attachments"] = starlark.NewList(attachments)
+		} else {
+			fields["attachments"] = none
+		}
 		return starlarkstruct.FromStringDict(starlarkstruct.Default, fields), nil
 	})
 }
