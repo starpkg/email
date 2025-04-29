@@ -1,6 +1,5 @@
 // Package email provides a Starlark module that sends email using Resend API.
-// The module provides a send() function that returns a struct containing
-// details about the sent email including:
+// The module provides a send() function that returns a struct containing details about the sent email including:
 // - success: Whether the email was sent successfully
 // - error: Error message if the email failed to send
 // - id: The unique identifier of the sent email
