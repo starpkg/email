@@ -149,7 +149,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 
 		// validate args
 		if body := []string{bodyHTML.GoString(), bodyText.GoString(), bodyMarkdown.GoString()}; lo.EveryBy(body, ystring.IsBlank) {
-			return none, fmt.Errorf("one of body_html, body_text, or body_markdown must be non-blank")
+			return none, fmt.Errorf("one of html, text, or markdown must be non-blank")
 		}
 		if toAddresses.Len() == 0 {
 			return none, fmt.Errorf("to must be set and non-empty")
