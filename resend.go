@@ -3,7 +3,7 @@
 // - success: Whether the email was sent successfully
 // - error: Error message if the email failed to send
 // - id: The unique identifier of the sent email
-// - from: The sender's email address
+// - sender: The sender's email address (from field)
 // - to: List of recipient email addresses
 // - cc: List of CC recipient email addresses
 // - bcc: List of BCC recipient email addresses
@@ -130,7 +130,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 			toAddresses        = newOneOrListStr() // must be set
 			ccAddresses        = newOneOrListStr()
 			bccAddresses       = newOneOrListStr()
-			fromAddress        types.NullableStringOrBytes // one of the two must be set
+			senderAddress      types.NullableStringOrBytes // one of the two must be set
 			fromNameID         types.NullableStringOrBytes
 			replyAddress       types.NullableStringOrBytes // both are optional
 			replyNameID        types.NullableStringOrBytes
@@ -141,7 +141,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 			"subject", &subject,
 			"html?", &bodyHTML, "text?", &bodyText, "markdown?", &bodyMarkdown,
 			"to", toAddresses, "cc?", ccAddresses, "bcc?", bccAddresses,
-			"from?", &fromAddress, "from_id?", &fromNameID,
+			"sender?", &senderAddress, "from_id?", &fromNameID,
 			"reply_to?", &replyAddress, "reply_id?", &replyNameID,
 			"attachment_file?", attachmentFiles, "attachment?", attachmentContents); err != nil {
 			return none, err
@@ -154,14 +154,14 @@ func (m *Module) genSendFunc() starlark.Callable {
 		if toAddresses.Len() == 0 {
 			return none, fmt.Errorf("to must be set and non-empty")
 		}
-		if fromAddress.IsNullOrEmpty() && fromNameID.IsNullOrEmpty() {
-			return none, fmt.Errorf("one of from or from_id must be non-blank")
+		if senderAddress.IsNullOrEmpty() && fromNameID.IsNullOrEmpty() {
+			return none, fmt.Errorf("one of sender or from_id must be non-blank")
 		}
 
 		// convert from to send address
 		var sendAddr string
-		if !fromAddress.IsNullOrEmpty() {
-			sendAddr = fromAddress.GoString()
+		if !senderAddress.IsNullOrEmpty() {
+			sendAddr = senderAddress.GoString()
 		} else if !fromNameID.IsNullOrEmpty() {
 			if ystring.IsNotBlank(senderDomain) {
 				sendAddr = fromNameID.GoString() + "@" + senderDomain
@@ -169,7 +169,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 				return none, fmt.Errorf("%s should be set when from_id is used", configKeySenderDomain)
 			}
 		} else {
-			return none, fmt.Errorf("no valid from or from_id found")
+			return none, fmt.Errorf("no valid sender or from_id found")
 		}
 
 		// convert from to reply address
@@ -278,7 +278,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 		if err != nil {
 			fields["error"] = starlark.String(err.Error())
 			fields["id"] = none
-			fields["from"] = none
+			fields["sender"] = none
 			fields["to"] = none
 			fields["cc"] = none
 			fields["bcc"] = none
@@ -289,7 +289,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 		} else {
 			fields["error"] = none
 			fields["id"] = starlark.String(sent.Id)
-			fields["from"] = starlark.String(req.From)
+			fields["sender"] = starlark.String(req.From)
 			fields["to"] = stringListToStarlark(req.To)
 			fields["cc"] = stringListToStarlark(req.Cc)
 			fields["bcc"] = stringListToStarlark(req.Bcc)
