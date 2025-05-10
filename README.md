@@ -49,7 +49,7 @@ func main() {
             subject = "Hello from Starlark!",
             html = "<h1>Hello World</h1><p>This is a test email.</p>",
             to = "recipient@example.com",
-            from = "sender@example.com"
+            sender = "sender@example.com"
         )
 
         if result.success:
@@ -100,7 +100,7 @@ result = send(
     subject = "Hello from Starlark!",
     html = "<h1>Welcome!</h1><p>Your account has been created.</p>",
     to = "user@example.com",
-    from = "noreply@example.com"
+    sender = "noreply@example.com"
 )
 
 if result.success:
@@ -149,7 +149,7 @@ result = send(
     to = ["manager@example.com", "director@example.com"],
     cc = "team@example.com",
     bcc = ["records@example.com", "audit@example.com"],
-    from = "reports@example.com",
+    sender = "reports@example.com",
     reply_to = "finance@example.com",
     attachment_file = ["reports/q3_2023.pdf", "reports/summary.xlsx"]
 )
@@ -158,6 +158,7 @@ if result.success:
     print("Email sent to:", result.to)
     print("CC:", result.cc)
     print("BCC:", result.bcc)
+    print("Sender:", result.sender)
     print("Attachments:", result.attachments)
 ```
 
@@ -199,7 +200,7 @@ Sends an email via Resend API.
 | `to` | string or list of strings | Yes | Recipient email address(es) |
 | `cc` | string or list of strings | No | CC recipient email address(es) |
 | `bcc` | string or list of strings | No | BCC recipient email address(es) |
-| `from` | string | No** | Full sender email address |
+| `sender` | string | No** | Full sender email address |
 | `from_id` | string | No** | Sender ID (used with domain) |
 | `reply_to` | string | No | Reply-to email address |
 | `reply_id` | string | No | Reply-to ID (used with domain) |
@@ -207,7 +208,7 @@ Sends an email via Resend API.
 | `attachment` | list of dicts | No | List of `{"name": string, "content": string}` objects |
 
 *At least one of `html`, `text`, or `markdown` must be provided.
-**At least one of `from` or `from_id` must be provided.
+**At least one of `sender` or `from_id` must be provided.
 
 #### Returns
 
@@ -218,7 +219,7 @@ A struct containing the following fields:
 | `success` | bool | Whether the email was sent successfully |
 | `error` | string | Error message if the email failed to send |
 | `id` | string | The unique identifier of the sent email |
-| `from` | string | The sender's email address |
+| `sender` | string | The sender's email address |
 | `to` | list of strings | List of recipient email addresses |
 | `cc` | list of strings | List of CC recipient email addresses |
 | `bcc` | list of strings | List of BCC recipient email addresses |
