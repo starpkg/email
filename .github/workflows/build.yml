@@ -6,84 +6,15 @@ on:
   pull_request:
     branches: ["master"]
 
-defaults:
-  run:
-    shell: bash
-
 permissions: read-all
 
 jobs:
-  build:
-    name: Test with ${{ matrix.go-version }} on ${{ matrix.vm-os }}
-    runs-on: ${{ matrix.vm-os }}
-    env:
-      CI_REPORT: ${{ matrix.vm-os == 'ubuntu-22.04' && matrix.go-version == '1.22.x' }}
-    strategy:
-      max-parallel: 10
-      fail-fast: false
-      matrix:
-        vm-os: [
-          ubuntu-22.04,
-          macos-14,
-          windows-2022
-        ]
-        go-version: [
-          1.22.x,
-          1.25.x,
-        ]
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ matrix.go-version }}
-          cache: true
-      - name: Go Build
-        run: |
-          go version
-          go mod download
-      - name: Test
-        run: |
-          make ci
-      # The coverage GATE is the codecov/project and codecov/patch commit
-      # statuses set by the Codecov app after this upload; continue-on-error
-      # here only tolerates upload-channel outages, it does not bypass the
-      # gate.
-      - name: Upload Coverage Reports to Codecov
-        if: ${{ fromJSON(env.CI_REPORT) }}
-        continue-on-error: true
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.txt
-      - name: Upload Coverage Reports to Codacy
-        if: ${{ fromJSON(env.CI_REPORT) }}
-        continue-on-error: true
-        env:
-          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
-        run:
-          bash <(curl -Ls https://coverage.codacy.com/get.sh) report --force-coverage-parser go -r coverage.txt
-      - name: Analyze
-        if: ${{ runner.os == 'Linux' }}
-        run: |
-          # Setup
-          wget -cqL https://github.com/XAMPPRocky/tokei/releases/download/v12.1.2/tokei-i686-unknown-linux-musl.tar.gz -O tokei.tgz
-          wget -cqL https://github.com/mgechev/revive/releases/download/v1.3.7/revive_linux_amd64.tar.gz -O revive.tgz
-          tar zxf tokei.tgz tokei && chmod +x tokei && $SUDO mv tokei /usr/local/bin && rm tokei.tgz
-          tar zxf revive.tgz revive && chmod +x revive && $SUDO mv revive /usr/local/bin && rm revive.tgz
-          wget -cqL https://raw.githubusercontent.com/1set/meta/master/revive.toml -O revive.toml
-          # Analyze
-          echo "# Analysis on ${{ runner.os }}" > $GITHUB_STEP_SUMMARY
-          uname -a >> $GITHUB_STEP_SUMMARY
-          # --- count lines of code
-          echo "## Tokei Result" >> $GITHUB_STEP_SUMMARY
-          printf '\n```\n' >> $GITHUB_STEP_SUMMARY
-          tokei >> $GITHUB_STEP_SUMMARY
-          printf '```\n\n' >> $GITHUB_STEP_SUMMARY
-          # --- lint
-          echo "## Revive Result" >> $GITHUB_STEP_SUMMARY
-          printf '\n```\n' >> $GITHUB_STEP_SUMMARY
-          revive -config revive.toml -formatter friendly ./... >> $GITHUB_STEP_SUMMARY
-          printf '```\n\n' >> $GITHUB_STEP_SUMMARY
+  ci:
+    # Reusable CI lives in 1set/meta — the single source of truth for every
+    # Star* module's pipeline. Pinned to a commit SHA for supply-chain safety;
+    # bump the pin when meta's workflow changes (Dependabot github-actions can
+    # automate this).
+    uses: 1set/meta/.github/workflows/go-ci.yml@467ad70ce9b105fbe0902e84c124196f56cb6f21
+    with:
+      go-floor: "1.22"
+    secrets: inherit
