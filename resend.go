@@ -18,9 +18,8 @@
 package email
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -31,9 +30,6 @@ import (
 	"github.com/resend/resend-go/v2"
 	"github.com/samber/lo"
 	"github.com/starpkg/base"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/extension"
-	renderer "github.com/yuin/goldmark/renderer/html"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -109,6 +105,67 @@ func stringListToStarlark(strs []string) starlark.Value {
 	return starlark.NewList(lo.Map(strs, func(s string, _ int) starlark.Value { return starlark.String(s) }))
 }
 
+// sendArgs holds the parsed, string-form arguments to send().
+type sendArgs struct {
+	subject       string
+	bodyHTML      string
+	bodyText      string
+	to, cc, bcc   []string
+	senderAddress string
+	fromNameID    string
+	replyAddress  string
+	replyNameID   string
+}
+
+// composeRequest validates the arguments and assembles a Resend send request.
+// It performs no I/O, so it is unit-testable; attachments and transport are
+// handled by the caller.
+func composeRequest(a sendArgs, senderDomain string) (*resend.SendEmailRequest, error) {
+	if ystring.IsBlank(a.bodyHTML) && ystring.IsBlank(a.bodyText) {
+		return nil, fmt.Errorf("one of html or text must be non-blank")
+	}
+	if len(a.to) == 0 {
+		return nil, fmt.Errorf("to must be set and non-empty")
+	}
+	if ystring.IsBlank(a.senderAddress) && ystring.IsBlank(a.fromNameID) {
+		return nil, fmt.Errorf("one of sender or from_id must be non-blank")
+	}
+	sendAddr, err := resolveAddress(a.senderAddress, a.fromNameID, senderDomain, "from_id")
+	if err != nil {
+		return nil, err
+	}
+	replyAddr, err := resolveAddress(a.replyAddress, a.replyNameID, senderDomain, "reply_id")
+	if err != nil {
+		return nil, err
+	}
+	return &resend.SendEmailRequest{
+		From:    sendAddr,
+		To:      a.to,
+		Cc:      a.cc,
+		Bcc:     a.bcc,
+		ReplyTo: replyAddr,
+		Subject: a.subject,
+		Html:    a.bodyHTML,
+		Text:    a.bodyText,
+	}, nil
+}
+
+// resolveAddress returns the direct address, or builds one from a name id plus
+// the sender domain. It returns an empty string when neither is provided (valid
+// for the optional reply address).
+func resolveAddress(direct, nameID, domain, idField string) (string, error) {
+	if ystring.IsNotBlank(direct) {
+		return direct, nil
+	}
+	if ystring.IsNotBlank(nameID) {
+		if ystring.IsBlank(domain) {
+			return "", fmt.Errorf("%s should be set when %s is used", configKeySenderDomain, idField)
+		}
+		return nameID + "@" + domain, nil
+	}
+	return "", nil
+}
+
 // genSendFunc generates the Starlark callable function to send an email.
 func (m *Module) genSendFunc() starlark.Callable {
 	return starlark.NewBuiltin(ModuleName+".send", func(thread *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -124,9 +181,8 @@ func (m *Module) genSendFunc() starlark.Callable {
 		newOneOrListStr := func() *types.OneOrMany[starlark.String] { return types.NewOneOrManyNoDefault[starlark.String]() }
 		var (
 			subject            types.StringOrBytes         // must be set
-			bodyHTML           types.NullableStringOrBytes // one of the three must be set
+			bodyHTML           types.NullableStringOrBytes // one of the two must be set
 			bodyText           types.NullableStringOrBytes
-			bodyMarkdown       types.NullableStringOrBytes
 			toAddresses        = newOneOrListStr() // must be set
 			ccAddresses        = newOneOrListStr()
 			bccAddresses       = newOneOrListStr()
@@ -139,7 +195,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 		)
 		if err := starlark.UnpackArgs(b.Name(), args, kwargs,
 			"subject", &subject,
-			"html?", &bodyHTML, "text?", &bodyText, "markdown?", &bodyMarkdown,
+			"html?", &bodyHTML, "text?", &bodyText,
 			"to", toAddresses, "cc?", ccAddresses, "bcc?", bccAddresses,
 			"sender?", &senderAddress, "from_id?", &fromNameID,
 			"reply_to?", &replyAddress, "reply_id?", &replyNameID,
@@ -147,44 +203,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 			return none, err
 		}
 
-		// validate args
-		if body := []string{bodyHTML.GoString(), bodyText.GoString(), bodyMarkdown.GoString()}; lo.EveryBy(body, ystring.IsBlank) {
-			return none, fmt.Errorf("one of html, text, or markdown must be non-blank")
-		}
-		if toAddresses.Len() == 0 {
-			return none, fmt.Errorf("to must be set and non-empty")
-		}
-		if senderAddress.IsNullOrEmpty() && fromNameID.IsNullOrEmpty() {
-			return none, fmt.Errorf("one of sender or from_id must be non-blank")
-		}
-
-		// convert from to send address
-		var sendAddr string
-		if !senderAddress.IsNullOrEmpty() {
-			sendAddr = senderAddress.GoString()
-		} else if !fromNameID.IsNullOrEmpty() {
-			if ystring.IsNotBlank(senderDomain) {
-				sendAddr = fromNameID.GoString() + "@" + senderDomain
-			} else {
-				return none, fmt.Errorf("%s should be set when from_id is used", configKeySenderDomain)
-			}
-		} else {
-			return none, fmt.Errorf("no valid sender or from_id found")
-		}
-
-		// convert from to reply address
-		var replyAddr string
-		if !replyAddress.IsNullOrEmpty() {
-			replyAddr = replyAddress.GoString()
-		} else if !replyNameID.IsNullOrEmpty() {
-			if ystring.IsNotBlank(senderDomain) {
-				replyAddr = replyNameID.GoString() + "@" + senderDomain
-			} else {
-				return none, fmt.Errorf("%s should be set when reply_id is used", configKeySenderDomain)
-			}
-		}
-
-		// prepare request
+		// validate and assemble the request (pure, testable)
 		convGoString := func(v []starlark.String) []string {
 			l := make([]string, len(v))
 			for i, vv := range v {
@@ -192,44 +211,20 @@ func (m *Module) genSendFunc() starlark.Callable {
 			}
 			return l
 		}
-		req := &resend.SendEmailRequest{
-			From:    sendAddr,
-			To:      convGoString(toAddresses.Slice()),
-			Cc:      convGoString(ccAddresses.Slice()),
-			Bcc:     convGoString(bccAddresses.Slice()),
-			ReplyTo: replyAddr,
-			Subject: subject.GoString(),
-		}
-
-		// for body content
-		if !bodyHTML.IsNullOrEmpty() {
-			// directly use HTML content
-			req.Html = bodyHTML.GoString()
-		}
-
-		if !bodyText.IsNullOrEmpty() {
-			// directly use text content
-			req.Text = bodyText.GoString()
-		}
-
-		if !bodyMarkdown.IsNullOrEmpty() {
-			// markdown overrides both HTML and text when provided
-			// convert markdown to HTML
-			markdown := goldmark.New(
-				goldmark.WithRendererOptions(
-					renderer.WithUnsafe(),
-				),
-				goldmark.WithExtensions(
-					extension.Strikethrough,
-					extension.Table,
-					extension.Linkify,
-				),
-			)
-			html := bytes.NewBufferString("")
-			_ = markdown.Convert([]byte(bodyMarkdown.GoString()), html)
-			req.Html = html.String()
-			// use original markdown as text
-			req.Text = bodyMarkdown.GoString()
+		req, err := composeRequest(sendArgs{
+			subject:       subject.GoString(),
+			bodyHTML:      bodyHTML.GoString(),
+			bodyText:      bodyText.GoString(),
+			to:            convGoString(toAddresses.Slice()),
+			cc:            convGoString(ccAddresses.Slice()),
+			bcc:           convGoString(bccAddresses.Slice()),
+			senderAddress: senderAddress.GoString(),
+			fromNameID:    fromNameID.GoString(),
+			replyAddress:  replyAddress.GoString(),
+			replyNameID:   replyNameID.GoString(),
+		}, senderDomain)
+		if err != nil {
+			return none, err
 		}
 
 		// for attachments
@@ -237,7 +232,7 @@ func (m *Module) genSendFunc() starlark.Callable {
 			// load file content and attach
 			for _, r := range fps {
 				fp := r.GoString()
-				c, err := ioutil.ReadFile(fp)
+				c, err := os.ReadFile(fp)
 				if err != nil {
 					return none, err
 				}

@@ -1,12 +1,12 @@
 # 📧 `email` - Starlark Email Module for Resend API
 
-A lightweight Starlark module for sending emails through the Resend API. Seamlessly integrate email capabilities into your Starlark scripts with support for HTML, Markdown, attachments, and comprehensive recipient management.
+A lightweight Starlark module for sending emails through the Resend API. Seamlessly integrate email capabilities into your Starlark scripts with support for HTML, plain text, attachments, and comprehensive recipient management.
 
 ## Overview
 
 The `email` module provides a simple way to send emails from Starlark with features like:
 
-- **HTML, plain text, and Markdown support**
+- **HTML and plain text body support**
 - **File attachments**
 - **CC/BCC recipients**
 - **Reply-to configuration**
@@ -109,32 +109,22 @@ else:
     print("Failed to send email:", result.error)
 ```
 
-### Markdown Content
+### Rendering Markdown to HTML
+
+This module only assembles and transports email (MIME + send); it does not
+render Markdown. To send Markdown as HTML, render it with the `markdown` module
+first and pass the result as `html`:
 
 ```python
 load("email", "send")
+load("markdown", "to_html")
 
-# Email with Markdown content (automatically converted to HTML)
 result = send(
     subject = "Meeting Notes",
-    markdown = """
-    # Team Meeting Notes
-
-    ## Action Items
-
-    - [ ] Update project timeline
-    - [ ] Schedule follow-up meeting
-
-    **Note**: Please review by Friday.
-    """,
+    html = to_html("# Team Meeting Notes\n\n- Update timeline\n- Schedule follow-up"),
     to = "team@example.com",
-    from_id = "meetings"  # Will become meetings@example.com
+    from_id = "meetings",  # becomes meetings@<sender_domain>
 )
-
-if result.success:
-    print("Email sent successfully!")
-    print("HTML content:", result.body_html)
-    print("Text content:", result.body_text)
 ```
 
 ### Multiple Recipients and Attachments
@@ -196,7 +186,6 @@ Sends an email via Resend API.
 | `subject` | string | Yes | Email subject line |
 | `html` | string | No* | HTML body content |
 | `text` | string | No* | Plain text body content |
-| `markdown` | string | No* | Markdown body content (converted to HTML) |
 | `to` | string or list of strings | Yes | Recipient email address(es) |
 | `cc` | string or list of strings | No | CC recipient email address(es) |
 | `bcc` | string or list of strings | No | BCC recipient email address(es) |
@@ -207,7 +196,7 @@ Sends an email via Resend API.
 | `attachment_file` | string or list of strings | No | File path(s) to attach |
 | `attachment` | list of dicts | No | List of `{"name": string, "content": string}` objects |
 
-*At least one of `html`, `text`, or `markdown` must be provided.
+*At least one of `html` or `text` must be provided.
 **At least one of `sender` or `from_id` must be provided.
 
 #### Returns
