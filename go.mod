@@ -1,6 +1,6 @@
 module github.com/starpkg/email
 
-go 1.18
+go 1.22
 
 require (
 	github.com/1set/gut v0.0.0-20201117175203-a82363231997
