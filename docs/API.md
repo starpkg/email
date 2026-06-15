@@ -56,7 +56,7 @@ the local-part form.
 ### Parameters
 
 | Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
+| --- | --- | --- | --- |
 | `subject` | string | Yes | Email subject line. |
 | `html` | string | No\* | HTML body content. |
 | `text` | string | No\* | Plain-text body content. |
@@ -82,7 +82,7 @@ accept either a single value or a list of values.
 `send` returns a struct with the following fields:
 
 | Field | Type | Description |
-|-------|------|-------------|
+| --- | --- | --- |
 | `success` | bool | Whether the email was sent successfully. |
 | `error` | string or None | Error message if sending failed, else `None`. |
 | `id` | string or None | Unique identifier of the sent email. |
@@ -199,14 +199,14 @@ current value. A **secret** option gets **only** a `set_<key>` builtin — there
 no getter, so a script can never read the value back.
 
 | Option | Accessors | Env var | Default | Description |
-|--------|-----------|---------|---------|-------------|
+| --- | --- | --- | --- | --- |
 | `resend_api_key` | `set_resend_api_key` (secret; **no getter**) | `EMAIL_RESEND_API_KEY` | `""` | Resend API key. Required before `send` can transport an email; sending errors with `resend_api_key is not set` until it is provided. Marked secret, so it has no `get_resend_api_key`. |
 | `sender_domain` | `set_sender_domain` / `get_sender_domain` | `EMAIL_SENDER_DOMAIN` | `""` | Domain used to form an address from `from_id` / `reply_id` (`<local-part>@<sender_domain>`). Optional; only required when `from_id` or `reply_id` is used. |
 
 Accessor signatures:
 
 | Builtin | Signature | Description |
-|---------|-----------|-------------|
+| --- | --- | --- |
 | `set_resend_api_key` | `set_resend_api_key(value)` | Set the Resend API key (secret; no getter is exposed). |
 | `set_sender_domain` | `set_sender_domain(value)` | Set the sender domain used with `from_id` / `reply_id`. |
 | `get_sender_domain` | `get_sender_domain() -> str` | Read the configured sender domain. |
