@@ -54,6 +54,7 @@ The module is small: one source file, one entry point. The shape is **config mod
 ## Test organization
 
 Group by functional goal — **do not add one `*_test.go` per fix.** `email_test.go` is the single home, opened with a commented section list:
+
 - *composeRequest validation / address resolution* — offline `composeRequest`/`resolveAddress` cases (table-driven).
 - *send() through the Starlark module* — offline behavior (`TestSendRequiresAPIKey`, `TestSendRejectsMarkdownKeyword`).
 - *live Resend integration* — opt-in `TestSendIntegration`, gated on `EMAIL_RUN_INTEGRATION` + a real key.
@@ -63,6 +64,7 @@ Add a new test as a **section here**, not a new file. Tests are table/example-dr
 ## Documentation
 
 Three layers must stay in sync (enforced by the doc standard, `plan/starpkg文档标准（DOC-STD）`):
+
 - **`README.md`** — every script-facing symbol documented as a backtick whole-word: the `send` builtin (with its full keyword signature + result-struct fields) and the generated `set_resend_api_key` / `set_sender_domain` / `get_sender_domain`. Host levers (`attachment_file`, the secret key) under *Safety*. Names/signatures must match the code.
 - **GoDoc** — package comment + a doc comment on every exported symbol (`ModuleName`, `Module`, `NewModule`, `NewModuleWithConfig`, `LoadModule`), first word = symbol name, gated by `revive`'s `exported` rule in CI.
 - **doc-coverage gate** — `1set/meta`'s `doccov` enumerates the script-facing builtins and fails CI if any is missing a backtick mention in the README. Wired via `doc-coverage: true` in `.github/workflows/build.yml`.
