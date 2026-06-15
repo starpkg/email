@@ -1,0 +1,7 @@
+---
+# Test files are validated by running them (go test -race), not by static
+# complexity analysis — Lizard's cyclomatic/length rules misfire on
+# table-driven tests. Production code stays fully analyzed.
+exclude_paths:
+  - "**/*_test.go"
+  - "*_test.go"

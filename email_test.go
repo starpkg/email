@@ -280,7 +280,7 @@ func TestSendArgumentErrors(t *testing.T) {
 		{
 			"attachment_file points at a missing path",
 			`send(subject="s", text="b", to="a@x.com", sender="f@x.com", attachment_file="/no/such/file/here")`,
-			"no such file",
+			"/no/such/file/here", // assert the path, not the OS-specific message (portable across Unix/Windows)
 		},
 		{
 			"inline attachment missing name",
@@ -308,7 +308,7 @@ func TestSendAttachmentFileIsDirectory(t *testing.T) {
 	// surface it as a clean Starlark error (no host crash, invariant 2).
 	dir := t.TempDir()
 	err := runSend(t, "", `send(subject="s", text="b", to="a@x.com", sender="f@x.com", attachment_file=`+starlark.String(dir).String()+`)`)
-	if err == nil || !strings.Contains(err.Error(), "is a directory") {
+	if err == nil { // reading a dir errors on every OS; the message differs (Unix "is a directory" vs Windows "Incorrect function"), so assert only that it errored
 		t.Errorf("reading a directory as an attachment should error, got %v", err)
 	}
 }
@@ -324,7 +324,7 @@ func TestSendAttachmentFileSecondOfTwoMissing(t *testing.T) {
 	body := `send(subject="s", text="b", to="a@x.com", sender="f@x.com", attachment_file=[` +
 		starlark.String(good).String() + `, "/no/such/second/file"])`
 	err := runSend(t, "", body)
-	if err == nil || !strings.Contains(err.Error(), "no such file") {
+	if err == nil || !strings.Contains(err.Error(), "/no/such/second/file") {
 		t.Errorf("a missing second attachment should error, got %v", err)
 	}
 }
