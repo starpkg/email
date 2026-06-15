@@ -3,6 +3,8 @@
 [![godoc](https://pkg.go.dev/badge/github.com/starpkg/email.svg)](https://pkg.go.dev/github.com/starpkg/email)
 [![license](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Go Report Card](https://goreportcard.com/badge/github.com/starpkg/email)](https://goreportcard.com/report/github.com/starpkg/email)
+[![codecov](https://codecov.io/gh/starpkg/email/graph/badge.svg)](https://codecov.io/gh/starpkg/email)
+![binary footprint](https://img.shields.io/badge/binary_footprint-%2B0.4_MB-blue)
 
 Send email from Starlark through the [Resend](https://resend.com/) API, with
 support for HTML and plain-text bodies, CC/BCC recipients, reply-to, and
