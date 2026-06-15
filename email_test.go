@@ -329,12 +329,15 @@ func TestSendAttachmentFileSecondOfTwoMissing(t *testing.T) {
 	}
 }
 
-func TestSendFromIDWithoutDomainErrors(t *testing.T) {
-	// With a sender domain configured, from_id resolves; without one it errors.
-	// The error path runs entirely offline (composeRequest, before transport).
+func TestSendReplyIDWithoutDomainErrors(t *testing.T) {
+	// reply_id needs the sender domain to build reply@domain; with no domain
+	// configured it errors, naming reply_id (a direct sender is supplied so the
+	// failure is on the reply path, not the from path). The error runs entirely
+	// offline (composeRequest, before transport). The companion from_id case is
+	// covered in TestSendArgumentErrors.
 	if err := runSend(t, "", `send(subject="s", text="b", to="a@x.com", reply_id="support", sender="f@x.com")`); err == nil ||
-		!strings.Contains(err.Error(), "sender_domain") {
-		t.Errorf("reply_id without a domain should error on sender_domain, got %v", err)
+		!strings.Contains(err.Error(), "reply_id") {
+		t.Errorf("reply_id without a domain should error naming reply_id, got %v", err)
 	}
 }
 
