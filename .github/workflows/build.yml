@@ -14,10 +14,12 @@ jobs:
     # Star* module's pipeline. Pinned to a commit SHA for supply-chain safety;
     # bump the pin when meta's workflow changes (Dependabot github-actions can
     # automate this).
-    uses: 1set/meta/.github/workflows/go-ci.yml@ad6a22e78c29e069c6d08dae3b0541b630a0bb0c
+    uses: 1set/meta/.github/workflows/go-ci.yml@5d86667e7264f012655dab2644dfa44e09597445
     with:
       go-floor: "1.22"
       doc-coverage: true
+      doc-coverage-file: docs/API.md
+      doc-coverage-config: true
       cov-min: 61
       footprint: true
       footprint-max-mb: 3
