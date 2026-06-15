@@ -1,10 +1,21 @@
 # 📧 `email` — Email for Starlark via Resend
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/starpkg/email.svg)](https://pkg.go.dev/github.com/starpkg/email)
+[![godoc](https://pkg.go.dev/badge/github.com/starpkg/email.svg)](https://pkg.go.dev/github.com/starpkg/email)
+[![license](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/starpkg/email)](https://goreportcard.com/report/github.com/starpkg/email)
 
 Send email from Starlark through the [Resend](https://resend.com/) API, with
 support for HTML and plain-text bodies, CC/BCC recipients, reply-to, and
 attachments.
+
+`starpkg` modules give Starlark scripts **support for necessary local
+operations plus simple abstractions over common online services, for ease of
+use.** `email` is firmly on the **online-service** side: it is a thin wrapper
+over the Resend email API. Its one local touch point is `attachment_file`,
+which reads host files to attach them (see [Safety](#safety)).
+
+A script `load`s the module, calls `send(...)`, and gets back a result struct
+describing the outcome — there is no connection object or session to manage.
 
 ## Installation
 
