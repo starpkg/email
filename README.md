@@ -52,7 +52,7 @@ module from its config options (see [Configuration](#configuration)).
 | `reply_to` | string | No | Reply-to email address |
 | `reply_id` | string | No | Reply-to local-part; becomes `reply_id@<sender_domain>` |
 | `attachment_file` | string or list of strings | No | Host file path(s) to attach |
-| `attachment` | list of dicts | No | List of `{"name": string, "content": string}` objects |
+| `attachment` | dict or list of dicts | No | Inline attachment(s), each a `{"name": string, "content": string}` object |
 
 \* At least one of `html` or `text` must be provided.
 \*\* At least one of `sender` or `from_id` must be provided.
@@ -74,8 +74,11 @@ module from its config options (see [Configuration](#configuration)).
 | `body_text` | string or None | The plain text body |
 | `attachments` | list of dicts or None | Attachment details (`name`, `content`) |
 
-On failure, `success` is `False`, `error` holds the message, and all other
-fields are `None`.
+On a transport failure (the Resend API call returning an error), `success` is
+`False`, `error` holds the message, and every echoed field is `None` except
+`attachments`, which still reflects any attachments that were supplied. Earlier
+failures — a missing API key, a validation error, or an unreadable
+`attachment_file` — are raised as a script error instead of a result struct.
 
 ## Usage
 

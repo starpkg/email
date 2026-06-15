@@ -20,8 +20,12 @@
 //   - body_text: the plain text content of the email, else None
 //   - attachments: list of attachment dicts (name, content), else None
 //
-// On failure success is False and every field other than success and error is
-// None.
+// A transport failure (the Resend call returning an error) yields a struct with
+// success False, error set to the message, and every echoed field None except
+// attachments, which still reflects any attachments that were supplied (None
+// when none were). Earlier failures — a missing API key, validation errors, or
+// an unreadable attachment file — surface as a Starlark error rather than a
+// result struct.
 package email
 
 import (

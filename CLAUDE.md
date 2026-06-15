@@ -41,7 +41,7 @@ The module is small: one source file, one entry point. The shape is **config mod
   - `sendArgs` + `composeRequest(args, senderDomain)` are the **pure, I/O-free** validation/assembly core (unit-testable without network): they enforce "one of html/text", "to non-empty", "one of sender/from_id", and build the `*resend.SendEmailRequest`. `resolveAddress(direct, nameID, domain, idField)` resolves a final address — a direct address wins; otherwise `nameID@domain` (erroring if the domain is unset).
   - Attachments are appended after compose: `attachment_file` paths are `os.ReadFile`'d from the host (filename = `filepath.Base`); inline `attachment` dicts must carry `name` + `content` keys.
   - Transport: `resend.NewClient(apiKey).Emails.SendWithContext(ctx, req)`, where `ctx` is pulled from the Starlark thread via `dataconv.GetThreadContext(thread)` (so host cancellation/timeout propagates).
-  - Result marshalling builds a `starlarkstruct` (`starlarkstruct.FromStringDict`): on success it echoes the resolved request fields + the returned `id`; on failure `success=False`, `error` holds the message, and all other fields are `None`.
+  - Result marshalling builds a `starlarkstruct` (`starlarkstruct.FromStringDict`): on success it echoes the resolved request fields + the returned `id`; on a transport failure `success=False`, `error` holds the message, and the echoed fields are `None` — **except `attachments`, which is set from `req.Attachments` outside the success/failure branch** (so it survives a failed send when attachments were supplied). Earlier failures (missing key / validation / unreadable file) return a Starlark error, not a struct.
 
 ## Invariants / hardening (preserve when editing)
 
