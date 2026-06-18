@@ -4,10 +4,10 @@ go 1.22
 
 require (
 	github.com/1set/gut v0.0.0-20201117175203-a82363231997
-	github.com/1set/starlet v0.2.1
+	github.com/1set/starlet v0.2.2
 	github.com/resend/resend-go/v2 v2.11.0
 	github.com/samber/lo v1.50.0
-	github.com/starpkg/base v0.1.0
+	github.com/starpkg/base v0.1.1
 	go.starlark.net v0.0.0-20260324133313-ffb3f39dd27a
 )
 
