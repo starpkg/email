@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/1set/starlet"
+	"github.com/resend/resend-go/v2"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 )
@@ -326,6 +327,91 @@ func TestSendAttachmentFileSecondOfTwoMissing(t *testing.T) {
 	err := runSend(t, "", body)
 	if err == nil || !strings.Contains(err.Error(), "/no/such/second/file") {
 		t.Errorf("a missing second attachment should error, got %v", err)
+	}
+}
+
+func TestReadAttachmentFileBounded(t *testing.T) {
+	dir := t.TempDir()
+	small := filepath.Join(dir, "small.txt")
+	if e := os.WriteFile(small, []byte("hello"), 0o600); e != nil { // 5 bytes
+		t.Fatalf("setup: %v", e)
+	}
+
+	// Under the budget: reads fine.
+	if b, err := readAttachmentFile(small, 100, 100); err != nil || string(b) != "hello" {
+		t.Errorf("under budget: got (%q, %v), want (hello, nil)", b, err)
+	}
+	// The file exceeds the remaining budget: a clean size error, not an OOM.
+	if _, err := readAttachmentFile(small, 4, 4); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("over budget: want an 'exceeds' error, got %v", err)
+	}
+	// The budget is already spent (remaining<=0): rejected before reading, and
+	// NOT treated as unlimited (a zero limit to ReadAllLimited would read all).
+	if _, err := readAttachmentFile(small, 10, 0); err == nil || !strings.Contains(err.Error(), "total limit") {
+		t.Errorf("spent budget: want a 'total limit' error, got %v", err)
+	}
+	// maxTotal<=0 means the host opted out of the cap: unlimited read.
+	if b, err := readAttachmentFile(small, 0, 0); err != nil || string(b) != "hello" {
+		t.Errorf("unlimited: got (%q, %v), want (hello, nil)", b, err)
+	}
+	// A missing file surfaces the open error unchanged (no size wrapping).
+	if _, err := readAttachmentFile(filepath.Join(dir, "nope"), 100, 100); err == nil {
+		t.Error("missing file should error")
+	}
+}
+
+func TestAppendFileAttachmentsSharedBudget(t *testing.T) {
+	// Two files that each fit the cap individually but together exceed it must be
+	// rejected — the whole send() shares one memory budget, so N files can't
+	// multiply past the cap.
+	t.Setenv("EMAIL_MAX_ATTACHMENT_SIZE", "8")
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.txt")
+	b := filepath.Join(dir, "b.txt")
+	if e := os.WriteFile(a, []byte("aaaaa"), 0o600); e != nil { // 5 bytes
+		t.Fatalf("setup a: %v", e)
+	}
+	if e := os.WriteFile(b, []byte("bbbbb"), 0o600); e != nil { // 5 bytes, 10 > 8 total
+		t.Fatalf("setup b: %v", e)
+	}
+	m := NewModule()
+	req := &resend.SendEmailRequest{}
+	err := m.appendFileAttachments(req, []starlark.String{starlark.String(a), starlark.String(b)})
+	if err == nil {
+		t.Fatal("two files summing over the cap should error")
+	}
+	// The first (within-budget) file was accepted before the second overflowed.
+	if len(req.Attachments) != 1 {
+		t.Errorf("attachments before overflow = %d, want 1", len(req.Attachments))
+	}
+}
+
+func TestSendAttachmentFileSizeCap(t *testing.T) {
+	// Through the full send() path: an oversized attachment_file is rejected with
+	// a size error before any network call.
+	t.Setenv("EMAIL_MAX_ATTACHMENT_SIZE", "4")
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.txt")
+	if e := os.WriteFile(big, []byte("way too many bytes"), 0o600); e != nil {
+		t.Fatalf("setup: %v", e)
+	}
+	body := `send(subject="s", text="b", to="a@x.com", sender="f@x.com", attachment_file=` +
+		starlark.String(big).String() + `)`
+	if err := runSend(t, "", body); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Errorf("oversized attachment should error before sending, got %v", err)
+	}
+}
+
+func TestMaxAttachmentSizeIsHostOnly(t *testing.T) {
+	// The attachment memory cap is a DoS guard the module enforces against the
+	// script, so it is host-only: base emits get_max_attachment_size but NO
+	// set_max_attachment_size, so a script cannot raise it.
+	dict := loadModuleSymbols(t, NewModule())
+	if _, ok := dict["set_max_attachment_size"]; ok {
+		t.Error("set_max_attachment_size is exposed — a script can raise the cap")
+	}
+	if _, ok := dict["get_max_attachment_size"]; !ok {
+		t.Error("get_max_attachment_size should exist (the cap is not secret)")
 	}
 }
 
