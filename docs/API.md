@@ -191,17 +191,19 @@ result = send(
 
 ## Configuration
 
-The module's configuration is generated from two config options by the
+The module's configuration is generated from three config options by the
 underlying configurable module (`starpkg/base`). Each option gets a `set_<key>`
 builtin to set it from Starlark and reads from an environment variable at module
 construction; non-secret options also get a `get_<key>` builtin to read the
 current value. A **secret** option gets **only** a `set_<key>` builtin — there is
-no getter, so a script can never read the value back.
+no getter, so a script can never read the value back. A **host-only** option gets
+**only** a `get_<key>` builtin — there is no setter, so a script cannot change it.
 
 | Option | Accessors | Env var | Default | Description |
 | --- | --- | --- | --- | --- |
 | `resend_api_key` | `set_resend_api_key` (secret; **no getter**) | `EMAIL_RESEND_API_KEY` | `""` | Resend API key. Required before `send` can transport an email; sending errors with `resend_api_key is not set` until it is provided. Marked secret, so it has no `get_resend_api_key`. |
 | `sender_domain` | `set_sender_domain` / `get_sender_domain` | `EMAIL_SENDER_DOMAIN` | `""` | Domain used to form an address from `from_id` / `reply_id` (`<local-part>@<sender_domain>`). Optional; only required when `from_id` or `reply_id` is used. |
+| `max_attachment_size` | `get_max_attachment_size` (host-only; **no setter**) | `EMAIL_MAX_ATTACHMENT_SIZE` | `26214400` (25 MiB) | Maximum **total** bytes read from `attachment_file` paths in one `send`. A memory-DoS guard, so it is host-only — a script cannot raise it. `0` means unlimited. |
 
 Accessor signatures:
 
@@ -210,6 +212,7 @@ Accessor signatures:
 | `set_resend_api_key` | `set_resend_api_key(value)` | Set the Resend API key (secret; no getter is exposed). |
 | `set_sender_domain` | `set_sender_domain(value)` | Set the sender domain used with `from_id` / `reply_id`. |
 | `get_sender_domain` | `get_sender_domain() -> str` | Read the configured sender domain. |
+| `get_max_attachment_size` | `get_max_attachment_size() -> int` | Read the attachment total-byte cap (host-only; no setter is exposed). |
 
 The values can also be seeded from Go (`NewModuleWithConfig`) or left to the
 environment variables / the `set_*` builtins (`NewModule`) — see the
@@ -222,6 +225,12 @@ their contents — a host-trusted capability. Only enable this module for script
 you trust with host file access; an untrusted script could exfiltrate any
 host-readable file by attaching it and mailing it out. Inline `attachment`
 content carries no such host access — it is supplied entirely by the script.
+
+The amount read is bounded: all `attachment_file` reads in one `send` share the
+host-only `max_attachment_size` byte budget (25 MiB by default), so a hostile or
+oversized path — `/dev/zero`, or a multi-GB file — cannot exhaust host memory. The
+cap is host-only (`get_max_attachment_size`, **no setter**), so a script cannot
+raise it; set `EMAIL_MAX_ATTACHMENT_SIZE` host-side to change it (`0` = unlimited).
 
 The Resend API key is configured as a secret: it is write-only from Starlark
 (`set_resend_api_key`, no `get_resend_api_key`), so a script cannot read the key

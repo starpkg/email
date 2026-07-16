@@ -119,9 +119,13 @@ signature, parameters, result-struct fields, errors, and examples.
 
 ## Configuration
 
-Two config options, `resend_api_key` (secret, set-only) and `sender_domain`, are
-settable from Go, from the `EMAIL_RESEND_API_KEY` / `EMAIL_SENDER_DOMAIN`
-environment variables, or from Starlark via the `set_*` builtins. See
+Three config options: `resend_api_key` (secret, set-only) and `sender_domain`
+are settable from Go, from the `EMAIL_RESEND_API_KEY` / `EMAIL_SENDER_DOMAIN`
+environment variables, or from Starlark via the `set_*` builtins;
+`max_attachment_size` is **host-only** (a read-only `get_max_attachment_size`, no
+setter) — the total-byte cap on `attachment_file` reads that a script cannot
+raise, configured host-side via `EMAIL_MAX_ATTACHMENT_SIZE` (25 MiB default,
+`0` = unlimited). See
 [docs/API.md § Configuration](docs/API.md#configuration) for the full table.
 
 ## License
