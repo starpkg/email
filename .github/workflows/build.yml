@@ -10,11 +10,14 @@ permissions: read-all
 
 jobs:
   ci:
+    permissions:
+      contents: read
+      id-token: write
     # Reusable CI lives in 1set/meta — the single source of truth for every
     # Star* module's pipeline. Pinned to a commit SHA for supply-chain safety;
     # bump the pin when meta's workflow changes (Dependabot github-actions can
     # automate this).
-    uses: 1set/meta/.github/workflows/go-ci.yml@5d86667e7264f012655dab2644dfa44e09597445
+    uses: 1set/meta/.github/workflows/go-ci.yml@6b334e6a2762acaeefcea9fc7d3e86964e9246be
     with:
       go-floor: "1.22"
       doc-coverage: true
