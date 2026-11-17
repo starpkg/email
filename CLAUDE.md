@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`starpkg/email` is an **L4 domain module** of the Star\* ecosystem: it lets Starlark scripts send email. A script `load`s the module and calls `send(...)`; the module assembles a request and ships it through the [Resend](https://resend.com) HTTP API, returning a result struct that describes the outcome.
+`starpkg/email` is an **L3 domain module** of the Star\* ecosystem: it lets Starlark scripts send email. A script `load`s the module and calls `send(...)`; the module assembles a request and ships it through the [Resend](https://resend.com) HTTP API, returning a result struct that describes the outcome.
 
 The starpkg charter is **support for necessary local operations + simple abstractions over common online services, for ease of use.** `email` sits squarely on the **online-service** side — it is a thin wrapper over one SaaS (Resend). Its only local capability is `attachment_file`, which reads host files to attach them; everything else is network I/O. There is **no connection or session object**: `send` is a one-shot call, unlike `sqlite`'s connection surface.
 
